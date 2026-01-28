@@ -4,7 +4,16 @@ import java.util.Map;
 
 public class Message implements Serializable {
     public RequestType type;
+
+    //Metadata
     public String fileName;
+    public String chunkId;
+
+    //Response
+    public List<String> chunkList;
+    public List<String> chunkServerList;
+
+    //Actual Data
     public byte[] data;
 
     // Response fields
