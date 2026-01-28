@@ -34,12 +34,12 @@ public class ChunkServer {
             out.writeObject(register);
             out.flush();
 
-            // ✅ READ MASTER RESPONSE (PREVENTS SOCKET ABORT)
+            // READ MASTER RESPONSE (PREVENTS SOCKET ABORT)
             Message response = (Message) in.readObject();
             System.out.println("Registered with Master: " + response.type);
         }
 
-        // 🔹 START CHUNK SERVER
+        // START CHUNK SERVER
         ServerSocket serverSocket = new ServerSocket(port);
         System.out.println("ChunkServer running on port " + port);
 
@@ -51,7 +51,7 @@ public class ChunkServer {
 
     private static void handle(Socket socket) {
         try {
-            // ⚠️ Output FIRST (CORRECT)
+            // Output FIRST (CORRECT)
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             out.flush();
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
