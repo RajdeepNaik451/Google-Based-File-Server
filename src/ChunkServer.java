@@ -1,47 +1,27 @@
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.*;
 import java.util.List;
 
 public class ChunkServer {
 
-    private static String STORAGE_DIR;
+    private static String STORAGE;
 
     public static void main(String[] args) throws Exception {
 
-        if (args.length < 1) {
-            System.out.println("Usage: java ChunkServer <port>");
-            return;
-        }
-
         int port = Integer.parseInt(args[0]);
-        STORAGE_DIR = "storage_" + port;
-        Files.createDirectories(Path.of(STORAGE_DIR));
+        STORAGE = "storage_" + port;
+        Files.createDirectories(Path.of(STORAGE));
 
-        //REGISTER WITH MASTER (FIXED)
-        try (Socket master = new Socket("localhost", 8080)) {
+        // REGISTER
+        registerWithMaster(port);
 
-            ObjectOutputStream out = new ObjectOutputStream(master.getOutputStream());
-            out.flush(); // IMPORTANT
-            ObjectInputStream in = new ObjectInputStream(master.getInputStream());
+        // HEARTBEAT
+        startHeartbeat(port);
 
-            Message register = new Message();
-            register.type = RequestType.REGISTER_CHUNKSERVER;
-            register.chunkServerList = List.of("localhost:" + port);
-
-            out.writeObject(register);
-            out.flush();
-
-            // READ MASTER RESPONSE (PREVENTS SOCKET ABORT)
-            Message response = (Message) in.readObject();
-            System.out.println("Registered with Master: " + response.type);
-        }
-
-        // START CHUNK SERVER
         ServerSocket serverSocket = new ServerSocket(port);
-        System.out.println("ChunkServer running on port " + port);
+        System.out.println("ChunkServer running on " + port);
 
         while (true) {
             Socket client = serverSocket.accept();
@@ -51,34 +31,68 @@ public class ChunkServer {
 
     private static void handle(Socket socket) {
         try {
-            // Output FIRST (CORRECT)
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             out.flush();
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
 
             Message msg = (Message) in.readObject();
+            Message res = new Message();
+            res.type = msg.type;
+            res.chunkId = msg.chunkId;
 
-            Message response = new Message();
-            response.type = msg.type;
-            response.chunkId = msg.chunkId;
+            Path path = Path.of(STORAGE, msg.chunkId);
 
-            if (msg.type == RequestType.WRITE_CHUNK) {
+            if (msg.type == RequestType.WRITE_CHUNK)
+                Files.write(path, msg.data);
 
-                Path chunkPath = Path.of(STORAGE_DIR, msg.chunkId);
-                Files.write(chunkPath, msg.data);
+            if (msg.type == RequestType.READ_CHUNK)
+                res.data = Files.readAllBytes(path);
 
-            } else if (msg.type == RequestType.READ_CHUNK) {
+            if (msg.type == RequestType.APPEND)
+                Files.write(path, msg.data, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 
-                Path chunkPath = Path.of(STORAGE_DIR, msg.chunkId);
-                response.data = Files.readAllBytes(chunkPath);
-            }
-
-            out.writeObject(response);
+            out.writeObject(res);
             out.flush();
             socket.close();
 
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private static void registerWithMaster(int port) throws Exception {
+        Socket s = new Socket("localhost", 8080);
+        ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
+        out.flush();
+
+        Message m = new Message();
+        m.type = RequestType.REGISTER_CHUNKSERVER;
+        m.chunkServerList = List.of("localhost:" + port);
+
+        out.writeObject(m);
+        out.flush();
+        s.close();
+    }
+
+    private static void startHeartbeat(int port) {
+        new Thread(() -> {
+            try {
+                while (true) {
+                    Socket s = new Socket("localhost", 8080);
+                    ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
+                    out.flush();
+
+                    Message hb = new Message();
+                    hb.type = RequestType.HEARTBEAT;
+                    hb.chunkServerList = List.of("localhost:" + port);
+
+                    out.writeObject(hb);
+                    out.flush();
+                    s.close();
+
+                    Thread.sleep(3000);
+                }
+            } catch (Exception ignored) {}
+        }).start();
     }
 }

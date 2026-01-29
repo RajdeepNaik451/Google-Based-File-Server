@@ -1,7 +1,9 @@
 public enum RequestType {
     REGISTER_CHUNKSERVER,
+    HEARTBEAT,
     CREATE_FILE,
     GET_CHUNKS,
     WRITE_CHUNK,
-    READ_CHUNK
+    READ_CHUNK,
+    APPEND
 }
