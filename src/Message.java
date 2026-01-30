@@ -1,22 +1,25 @@
 import java.io.Serializable;
 import java.util.List;
-import java.util.Map;
 
 public class Message implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
     public RequestType type;
 
-    //Metadata
+    // File / directory info
     public String fileName;
-    public String chunkId;
+    public boolean isDirectory;
 
-    //Response
+    // Metadata
+    public long fileSize;
+    public String fileType;
+
+    // Chunk info
+    public String chunkId;
     public List<String> chunkList;
     public List<String> chunkServerList;
 
-    //Actual Data
+    // Data
     public byte[] data;
-
-    // Response fields
-    public List<String> chunks;
-    public Map<String, List<String>> chunkLocations;
 }
